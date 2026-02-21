@@ -13,7 +13,7 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-TOKEN = "TOKEN"
+TOKEN = "YOUR_BOT_TOKEN"
 
 bot = Bot(
     TOKEN,
