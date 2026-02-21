@@ -13,7 +13,7 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-TOKEN = "не подглядывай"
+TOKEN = "TOKEN"
 
 bot = Bot(
     TOKEN,
@@ -54,6 +54,17 @@ def generate_room_code():
 
 def create_board():
     return [" "] * 9
+
+
+def assign_symbols(game):
+    """Случайное распределение ❌ и ⭕"""
+    players = game["players"]
+    random.shuffle(players)
+
+    players[0]["symbol"] = "❌"
+    players[1]["symbol"] = "⭕"
+
+    game["turn"] = players[0]["id"]
 
 
 def render_board(board, finished=False):
@@ -143,7 +154,7 @@ async def start_handler(message: Message):
 
 
 # =========================
-# ГЛОБАЛЬНЫЙ ВЫХОД
+# ВЫХОД
 # =========================
 
 @dp.message(F.text == "🚪 Покинуть игру")
@@ -176,9 +187,9 @@ async def new_game(message: Message):
     games[code] = {
         "board": create_board(),
         "players": [
-            {"id": user_id, "symbol": "❌", "name": message.from_user.first_name}
+            {"id": user_id, "name": message.from_user.first_name}
         ],
-        "turn": user_id,
+        "turn": None,
         "messages": {}
     }
 
@@ -187,7 +198,6 @@ async def new_game(message: Message):
     await message.answer(
         f"Комната создана!\n"
         f"Код комнаты: <b>{code}</b>\n\n"
-        f"Ты играешь за ❌\n"
         f"Ожидание второго игрока...",
         reply_markup=main_menu
     )
@@ -234,20 +244,23 @@ async def handle_code_input(message: Message):
 
     game["players"].append({
         "id": user_id,
-        "symbol": "⭕",
         "name": message.from_user.first_name
     })
 
     player_room[user_id] = code
 
+    assign_symbols(game)
+
     p1 = game["players"][0]
     p2 = game["players"][1]
 
+    first_player = next(p for p in game["players"] if p["symbol"] == "❌")
+
     text = (
         f"Игра началась!\n\n"
-        f"{p1['name']} — ❌\n"
-        f"{p2['name']} — ⭕\n\n"
-        f"Ходит: {p1['name']}"
+        f"{p1['name']} — {p1['symbol']}\n"
+        f"{p2['name']} — {p2['symbol']}\n\n"
+        f"Ходит: {first_player['name']} (❌)"
     )
 
     keyboard = render_board(game["board"])
@@ -308,7 +321,7 @@ async def handle_move(callback: CallbackQuery):
     other = next(p for p in game["players"] if p["id"] != user_id)
     game["turn"] = other["id"]
 
-    text = f"Ходит: {other['name']}"
+    text = f"Ходит: {other['name']} ({other['symbol']})"
     await update_board(game, text)
 
     await callback.answer()
@@ -332,16 +345,19 @@ async def restart_game(callback: CallbackQuery):
         return
 
     game["board"] = create_board()
-    game["turn"] = game["players"][0]["id"]
+
+    assign_symbols(game)
 
     p1 = game["players"][0]
     p2 = game["players"][1]
 
+    first_player = next(p for p in game["players"] if p["symbol"] == "❌")
+
     text = (
         f"Новая игра!\n\n"
-        f"{p1['name']} — ❌\n"
-        f"{p2['name']} — ⭕\n\n"
-        f"Ходит: {p1['name']}"
+        f"{p1['name']} — {p1['symbol']}\n"
+        f"{p2['name']} — {p2['symbol']}\n\n"
+        f"Ходит: {first_player['name']} (❌)"
     )
 
     await update_board(game, text)
